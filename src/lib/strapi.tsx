@@ -69,14 +69,21 @@ export const getPosts = async (revalidate: number = 3600) => {
   }
 };
 
-export const getLatestPosts = async (limit: number = 5, revalidate: number = 60) => {
+export const getLatestPosts = async ({ 
+  limit, 
+  revalidate = 60 
+}: { 
+  limit?: number; 
+  revalidate?: number 
+} = {}) => {
   try {
-    const response = await fetchStrapi(`/blog-lastest?limit=${limit}`, {
+    const url = limit ? `/blog-lastest?limit=${limit}` : '/blog-lastest';
+    const response = await fetchStrapi(url, {
       next: { revalidate },
     });
     return (response.data || []) as Post[];
   } catch (error) {
-    console.error(`Error fetching ${limit} latest posts:`, error);
+    console.error(`Error fetching latest posts:`, error);
     return [];
   }
 };

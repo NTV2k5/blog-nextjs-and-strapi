@@ -1,41 +1,34 @@
-'use client';
-
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { getPostBySlug, Post, getStrapiURL, renderBlocks, getTextContent } from '@/lib/strapi';
+import React from 'react';
+import { getPostBySlug, getPosts, getStrapiURL, renderBlocks, getTextContent } from '@/lib/strapi';
 import { motion } from 'framer-motion';
 import { Calendar, ArrowLeft, Share2, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
+import { notFound } from 'next/navigation';
+import { ClientMotionWrapper } from '@/components/glass/ClientMotionWrapper';
 
-export default function BlogPostPage() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const [post, setPost] = useState<Post | null>(null);
-  const [loading, setLoading] = useState(true);
+// ISR Configuration: Revalidate every hour (3600s)
+export const revalidate = 3600;
 
-  useEffect(() => {
-    const fetchPost = async () => {
-      const data = await getPostBySlug(slug);
-      setPost(data);
-      setLoading(false);
-    };
-    fetchPost();
-  }, [slug]);
+// Pre-render blog posts during build
+export async function generateStaticParams() {
+  const posts = await getPosts();
+  return posts.map((post) => ({
+    slug: post.slug,
+  }));
+}
 
-  if (loading) {
-    return <PostLoader />;
-  }
+interface BlogPostPageProps {
+  params: Promise<{ slug: string }>;
+}
+
+export default async function BlogPostPage({ params }: BlogPostPageProps) {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug, revalidate);
 
   if (!post) {
-    return (
-      <div className="text-center py-20">
-        <h1 className="text-4xl font-bold mb-4">Post not found</h1>
-        <Link href="/" className="text-primary hover:underline">Return to home</Link>
-      </div>
-    );
+    notFound();
   }
 
   const cover = Array.isArray(post.cover) ? post.cover[0] : post.cover;
@@ -47,7 +40,7 @@ export default function BlogPostPage() {
 
   return (
     <article className="max-w-4xl mx-auto pb-20">
-      <motion.div
+      <ClientMotionWrapper
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         className="mb-8"
@@ -55,9 +48,9 @@ export default function BlogPostPage() {
         <Link href="/" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to feed
         </Link>
-      </motion.div>
+      </ClientMotionWrapper>
 
-      <motion.div
+      <ClientMotionWrapper
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
@@ -95,7 +88,7 @@ export default function BlogPostPage() {
           <div className="relative aspect-video w-full overflow-hidden rounded-3xl glass shadow-2xl">
             <img 
               src={coverUrl} 
-              alt={title}
+              alt={title || 'Cover image'}
               className="object-cover w-full h-full"
             />
           </div>
@@ -104,7 +97,6 @@ export default function BlogPostPage() {
         <div className="prose prose-invert prose-lg max-w-none mt-12 text-foreground/80 leading-relaxed">
           {description && <p className="text-xl text-foreground font-medium mb-8">{description}</p>}
           
-          {/* Blocks Rendering Logic */}
           <div className="space-y-6">
             {renderBlocks(post.content) || (
               <p>This post has no content blocks yet. Please add content in the Strapi editor.</p>
@@ -125,32 +117,9 @@ export default function BlogPostPage() {
             </button>
           </div>
         </div>
-      </motion.div>
+      </ClientMotionWrapper>
     </article>
   );
 }
 
-function PostLoader() {
-  return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-pulse">
-      <Skeleton className="h-6 w-32 rounded-full" />
-      <div className="space-y-4">
-        <Skeleton className="h-16 w-3/4 rounded-xl" />
-        <div className="flex space-x-4">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-16" />
-          </div>
-        </div>
-      </div>
-      <Skeleton className="h-96 w-full rounded-3xl" />
-      <div className="space-y-4">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-2/3" />
-      </div>
-    </div>
-  );
-}
 

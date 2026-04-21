@@ -1,35 +1,10 @@
-'use client';
-
-import React, { useEffect, useState } from 'react';
-import { getLatestPosts, Post } from '@/lib/strapi';
+import React from 'react';
+import { getLatestPosts } from '@/lib/strapi';
 import PostCard from '@/components/glass/PostCard';
-import { Loader2 } from 'lucide-react';
 
-export default function LatestPosts() {
-  const [latestPosts, setLatestPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchLatest = async () => {
-      try {
-        const data = await getLatestPosts();
-        setLatestPosts(data);
-      } catch (error) {
-        console.error("Lỗi khi fetch Latest Posts:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLatest();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-10">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
-  }
+export default async function LatestPosts() {
+  // ISR: Revalidate every 60 seconds
+  const latestPosts = await getLatestPosts(5, 60);
 
   return (
     <section>
@@ -54,3 +29,4 @@ export default function LatestPosts() {
     </section>
   );
 }
+

@@ -1,15 +1,33 @@
-import axios from 'axios';
 import React from 'react';
 
 const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL;
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
-export const strapi = axios.create({
-  baseURL: `${STRAPI_URL}/api`,
-  headers: {
-    Authorization: STRAPI_TOKEN ? `Bearer ${STRAPI_TOKEN}` : '',
-  },
-});
+/**
+ * Core fetch utility for Strapi
+ */
+async function fetchStrapi(endpoint: string, options: RequestInit = {}) {
+  const url = `${STRAPI_URL}/api${endpoint}`;
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(STRAPI_TOKEN ? { Authorization: `Bearer ${STRAPI_TOKEN}` } : {}),
+    ...options.headers,
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    console.error('Strapi error:', error);
+    throw new Error(`Strapi Fetch Error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
 
 export interface StrapiImage {
   id: number;
@@ -39,32 +57,36 @@ export interface Post {
   };
 }
 
-export const getPosts = async () => {
+export const getPosts = async (revalidate: number = 3600) => {
   try {
-    const response = await strapi.get('/posts?populate=*');
-    // Strapi 5 returns data directly in the data property
-    return (response.data.data || []) as Post[];
+    const response = await fetchStrapi('/posts?populate=*', {
+      next: { revalidate },
+    });
+    return (response.data || []) as Post[];
   } catch (error) {
     console.error('Error fetching posts:', error);
     return [];
   }
 };
 
-export const getLatestPosts = async (limit: number = 5) => {
+export const getLatestPosts = async (limit: number = 5, revalidate: number = 60) => {
   try {
-    const response = await strapi.get(`/blog-lastest?limit=${limit}`);
-    return (response.data.data || []) as Post[];
+    const response = await fetchStrapi(`/blog-lastest?limit=${limit}`, {
+      next: { revalidate },
+    });
+    return (response.data || []) as Post[];
   } catch (error) {
     console.error(`Error fetching ${limit} latest posts:`, error);
     return [];
   }
 };
 
-
-export const getPostBySlug = async (slug: string) => {
+export const getPostBySlug = async (slug: string, revalidate: number = 3600) => {
   try {
-    const response = await strapi.get(`/posts?filters[slug][$eq]=${slug}&populate=*`);
-    return (response.data.data?.[0] || null) as Post | null;
+    const response = await fetchStrapi(`/posts?filters[slug][$eq]=${slug}&populate=*`, {
+      next: { revalidate },
+    });
+    return (response.data?.[0] || null) as Post | null;
   } catch (error) {
     console.error(`Error fetching post with slug ${slug}:`, error);
     return null;
@@ -73,8 +95,10 @@ export const getPostBySlug = async (slug: string) => {
 
 export const getAboutContent = async () => {
   try {
-    const response = await strapi.get('/about?populate=*');
-    return response.data.data;
+    const response = await fetchStrapi('/about?populate=*', {
+      next: { revalidate: 3600 },
+    });
+    return response.data;
   } catch (error) {
     console.error('Error fetching about content:', error);
     return null;
@@ -83,8 +107,10 @@ export const getAboutContent = async () => {
 
 export const getContactContent = async () => {
   try {
-    const response = await strapi.get('/contact?populate=*');
-    return response.data.data;
+    const response = await fetchStrapi('/contact?populate=*', {
+      next: { revalidate: 3600 },
+    });
+    return response.data;
   } catch (error) {
     console.error('Error fetching contact content:', error);
     return null;
@@ -130,3 +156,4 @@ export const renderBlocks = (content: any) => {
     }
   });
 };
+

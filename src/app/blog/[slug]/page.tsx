@@ -7,12 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { notFound } from 'next/navigation';
 import { ClientMotionWrapper } from '@/components/glass/ClientMotionWrapper';
+import PostInteractions from '@/components/glass/PostInteractions';
 
 // ISR Configuration: Revalidate every hour (3600s)
-export const revalidate = 3600;
+export const revalidate = 7200;
 
 // Pre-render blog posts during build
 export async function generateStaticParams() {
+  console.log('\nlog của hàm generateStaticParams');
   const posts = await getPosts();
   return posts.map((post) => ({
     slug: post.slug,
@@ -24,6 +26,7 @@ interface BlogPostPageProps {
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
+  console.log('log của hàm postBySlug\n', params);
   const { slug } = await params;
   const post = await getPostBySlug(slug, revalidate);
 
@@ -105,17 +108,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </div>
 
 
-        <div className="pt-12 flex items-center justify-between border-t border-white/10">
-          <div className="flex items-center space-x-4">
-            <button className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full transition-colors border border-white/10">
-              <Heart className="w-4 h-4 text-pink-500" />
-              <span className="text-sm font-medium">Like</span>
-            </button>
-            <button className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full transition-colors border border-white/10">
-              <Share2 className="w-4 h-4" />
-              <span className="text-sm font-medium">Share</span>
-            </button>
-          </div>
+        <div className="pt-12 border-t border-white/10">
+          <PostInteractions 
+            postId={post.id} 
+            postTitle={title} 
+            postSlug={post.slug} 
+          />
         </div>
       </ClientMotionWrapper>
     </article>

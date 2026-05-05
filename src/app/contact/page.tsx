@@ -3,11 +3,25 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { getContactContent } from '@/lib/strapi';
-import { Mail, MessageSquare, MapPin, Send } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { contactSchema, type ContactInput } from '@/lib/validations';
+import { Mail, MessageSquare, MapPin, Send, AlertCircle } from 'lucide-react';
 
 export default function ContactPage() {
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ContactInput>({
+    resolver: zodResolver(contactSchema),
+  });
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -17,6 +31,17 @@ export default function ContactPage() {
     };
     fetchContent();
   }, []);
+
+  const onSubmit = async (data: ContactInput) => {
+    setIsSubmitting(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    console.log('Contact form data:', data);
+    setSubmitSuccess(true);
+    setIsSubmitting(false);
+    reset();
+    setTimeout(() => setSubmitSuccess(false), 5000);
+  };
 
   if (loading) return <div className="py-20 text-center">Loading...</div>;
 
@@ -86,30 +111,74 @@ export default function ContactPage() {
           animate={{ opacity: 1, x: 0 }}
           className="glass p-8 rounded-3xl space-y-6 border-white/20 shadow-2xl"
         >
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">First Name</label>
-                <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50" placeholder="John" />
+          {submitSuccess && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm animate-in fade-in slide-in-from-top-4">
+              Thank you! Your message has been sent successfully.
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">First Name</label>
+                  <input 
+                    {...register('firstName')}
+                    type="text" 
+                    className={`w-full bg-white/5 border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50 transition-all ${
+                      errors.firstName ? 'border-red-500/50' : 'border-white/10'
+                    }`} 
+                    placeholder="John" 
+                  />
+                  {errors.firstName && <p className="text-xs text-red-400 ml-1">{errors.firstName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Last Name</label>
+                  <input 
+                    {...register('lastName')}
+                    type="text" 
+                    className={`w-full bg-white/5 border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50 transition-all ${
+                      errors.lastName ? 'border-red-500/50' : 'border-white/10'
+                    }`} 
+                    placeholder="Doe" 
+                  />
+                  {errors.lastName && <p className="text-xs text-red-400 ml-1">{errors.lastName.message}</p>}
+                </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Last Name</label>
-                <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50" placeholder="Doe" />
+                <label className="text-sm font-medium">Email Address</label>
+                <input 
+                  {...register('email')}
+                  type="email" 
+                  className={`w-full bg-white/5 border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50 transition-all ${
+                    errors.email ? 'border-red-500/50' : 'border-white/10'
+                  }`} 
+                  placeholder="john@example.com" 
+                />
+                {errors.email && <p className="text-xs text-red-400 ml-1">{errors.email.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Message</label>
+                <textarea 
+                  {...register('message')}
+                  rows={4} 
+                  className={`w-full bg-white/5 border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50 resize-none transition-all ${
+                    errors.message ? 'border-red-500/50' : 'border-white/10'
+                  }`} 
+                  placeholder="How can we help?"
+                ></textarea>
+                {errors.message && <p className="text-xs text-red-400 ml-1">{errors.message.message}</p>}
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email Address</label>
-              <input type="email" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50" placeholder="john@example.com" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Message</label>
-              <textarea rows={4} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/50 resize-none" placeholder="How can we help?"></textarea>
-            </div>
-          </div>
-          <button className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold flex items-center justify-center space-x-2 hover:opacity-90 transition-opacity">
-            <span>Send Message</span>
-            <Send className="w-4 h-4" />
-          </button>
+            <button 
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold flex items-center justify-center space-x-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              <span>{isSubmitting ? 'Sending...' : 'Send Message'}</span>
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
         </motion.div>
       </div>
     </div>

@@ -3,8 +3,8 @@ import { getLatestPosts } from '@/lib/strapi';
 import PostCard from '@/components/glass/PostCard';
 
 export default async function LatestPosts() {
-  // ISR: Revalidate every 60 seconds. Không truyền limit để Strapi tự dùng mặc định (5 bài)
-  const latestPosts = await getLatestPosts({ limit: 3, revalidate: 60 });
+  // ISR: Revalidate every 60 seconds.
+  const latestPosts = await getLatestPosts({ limit: 3});
 
   return (
     <section>

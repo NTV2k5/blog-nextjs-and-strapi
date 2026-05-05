@@ -57,7 +57,7 @@ export interface Post {
   };
 }
 
-export const getPosts = async (revalidate: number = 3600) => {
+export const getPosts = async (revalidate: number = 90) => {
   try {
     const response = await fetchStrapi('/posts?populate=*', {
       next: { revalidate },
@@ -124,6 +124,127 @@ export const getContactContent = async () => {
   }
 };
 
+/**
+ * Search posts by title, content, author name, or date
+ */
+export const searchPosts = async (query: string) => {
+  if (!query) return [];
+  
+  try {
+    const filters = [
+      `filters[$or][0][title][$containsi]=${query}`,
+      `filters[$or][1][description][$containsi]=${query}`,
+      `filters[$or][2][content][$containsi]=${query}`,
+      `filters[$or][3][author][name][$containsi]=${query}`,
+      `filters[$or][4][publishedAt][$containsi]=${query}`,
+    ].join('&');
+
+    const response = await fetchStrapi(`/posts?${filters}&populate=*`, {
+      cache: 'no-store',
+    });
+    
+    return (response.data || []) as Post[];
+  } catch (error) {
+    console.error('Error searching posts:', error);
+    return [];
+  }
+};
+
+/**
+ * Fetch saved posts for the current user with deep population
+ */
+export const getSavedPosts = async (jwt: string) => {
+  if (!jwt) return [];
+  
+  try {
+    const response = await fetch(`${STRAPI_URL}/api/users/me?populate[saved_posts][populate][author][populate]=*&populate[saved_posts][populate][cover][populate]=*`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+    });
+
+    if (!response.ok) return [];
+    
+    const userData = await response.json();
+    return (userData.saved_posts || []) as Post[];
+  } catch (error) {
+    console.error('Error fetching saved posts:', error);
+    return [];
+  }
+};
+
+/**
+ * Toggle saving a post for the current user
+ */
+export const toggleSavePost = async (jwt: string, userId: number, postId: number, isCurrentlySaved: boolean) => {
+  try {
+    const user = await fetch(`${STRAPI_URL}/api/users/me?populate=saved_posts`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }).then(res => res.json());
+
+    const currentSavedIds = user.saved_posts?.map((p: any) => p.id) || [];
+    
+    let newSavedIds;
+    if (isCurrentlySaved) {
+      newSavedIds = currentSavedIds.filter((id: number) => id !== postId);
+    } else {
+      newSavedIds = [...currentSavedIds, postId];
+    }
+
+    const response = await fetch(`${STRAPI_URL}/api/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({
+        saved_posts: newSavedIds
+      }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Error toggling save:', error);
+    return false;
+  }
+};
+
+/**
+ * Toggle liking a post for the current user
+ */
+export const toggleLikePost = async (jwt: string, userId: number, postId: number, isCurrentlyLiked: boolean) => {
+  try {
+    const user = await fetch(`${STRAPI_URL}/api/users/me?populate=liked_posts`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }).then(res => res.json());
+
+    const currentLikedIds = user.liked_posts?.map((p: any) => p.id) || [];
+    
+    let newLikedIds;
+    if (isCurrentlyLiked) {
+      newLikedIds = currentLikedIds.filter((id: number) => id !== postId);
+    } else {
+      newLikedIds = [...currentLikedIds, postId];
+    }
+
+    const response = await fetch(`${STRAPI_URL}/api/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({
+        liked_posts: newLikedIds
+      }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Error toggling like:', error);
+    return false;
+  }
+};
+
 export const getStrapiURL = (path: string) => {
   if (!path) return '';
   if (path.startsWith('http') || path.startsWith('//')) return path;
@@ -163,4 +284,3 @@ export const renderBlocks = (content: any) => {
     }
   });
 };
-

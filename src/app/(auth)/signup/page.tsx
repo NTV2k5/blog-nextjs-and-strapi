@@ -29,7 +29,9 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const response = await registerUser(data);
+      // Strip confirmPassword — not sent to Strapi
+      const { confirmPassword: _, ...payload } = data;
+      const response = await registerUser(payload as any);
       login(response.jwt, response.user);
       router.push('/');
       router.refresh();
@@ -125,6 +127,23 @@ export default function SignupPage() {
                     errors.password ? 'border-red-500/50' : 'border-white/10'
                   }`}
                   placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300 ml-1">Confirm Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-500" />
+                </div>
+                <input
+                  {...register('confirmPassword')}
+                  type="password"
+                  className={`block w-full pl-10 pr-3 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all ${
+                    errors.confirmPassword ? 'border-red-500/50' : 'border-white/10'
+                  }`}
+                  placeholder="Repeat your password"
                 />
               </div>
             </div>

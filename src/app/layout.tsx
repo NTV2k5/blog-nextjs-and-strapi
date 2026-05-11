@@ -4,7 +4,6 @@ import "./globals.css";
 import Navbar from "@/components/glass/Navbar";
 import Footer from "@/components/glass/Footer";
 import { AuthProvider } from "@/context/AuthContext";
-import AuthGuard from "@/components/auth/AuthGuard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,13 +29,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
         <AuthProvider>
-          <AuthGuard>
-            <Navbar />
-            <main className="max-w-7xl mx-auto px-6 pt-12 flex-grow">
-              {children}
-            </main>
-            <Footer />
-          </AuthGuard>
+          <Navbar />
+          <main className="max-w-7xl mx-auto px-6 pt-12 flex-grow">
+            {children}
+          </main>
+          <Footer />
         </AuthProvider>
       </body>
     </html>

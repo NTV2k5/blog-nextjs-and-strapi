@@ -14,7 +14,7 @@ export default function ChangePasswordPage() {
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { jwt, user, loading } = useAuth();
+  const { jwt, user, loading, logout } = useAuth();
   const router = useRouter();
 
   const {
@@ -42,6 +42,11 @@ export default function ChangePasswordPage() {
       await changePassword(jwt, data);
       setSuccess(true);
       reset();
+      // Logout and redirect after 2 seconds for security
+      setTimeout(() => {
+        logout();
+        router.push('/login');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to change password. Check your current password.');
     } finally {
@@ -89,7 +94,7 @@ export default function ChangePasswordPage() {
           {success && (
             <div className="flex items-center gap-3 p-4 mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm animate-in fade-in slide-in-from-top-4">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
-              <p>Password successfully updated!</p>
+              <p>Password updated! Redirecting to login for security...</p>
             </div>
           )}
 

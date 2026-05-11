@@ -6,7 +6,7 @@ const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 /**
  * Core fetch utility for Strapi
  */
-async function fetchStrapi(endpoint: string, options: RequestInit = {}) {
+export async function fetchStrapi(endpoint: string, options: RequestInit = {}) {
   const url = `${STRAPI_URL}/api${endpoint}`;
   
   const headers = {
@@ -41,25 +41,60 @@ export interface StrapiImage {
   };
 }
 
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  parent?: Category;
+  children?: Category[];
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface Series {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  posts: {
+    id: number;
+    documentId: string;
+    title: string;
+    slug: string;
+  }[];
+}
+
 export interface Post {
   id: number;
   documentId: string;
   title: string | any;
   description: string | any;
-  content: any; // Dynamic content from Strapi (Rich Text/Blocks)
+  content: any;
   slug: string | any;
   createdAt: string;
   publishedAt: string;
-  cover?: StrapiImage | StrapiImage[]; // Handle both single and multiple
+  cover?: StrapiImage | StrapiImage[];
   author?: {
     name: string;
+    username: string;
     avatar?: StrapiImage;
   };
+  categories?: Category[];
+  tags?: Tag[];
+  series?: Series;
 }
 
-export const getPosts = async (revalidate: number = 90) => {
+export const getPosts = async (revalidate: number = 90, authorUsername?: string) => {
   try {
-    const response = await fetchStrapi('/posts?populate=*', {
+    let url = '/posts?populate=*';
+    if (authorUsername) {
+      url += `&filters[author_user][username][$eq]=${authorUsername}`;
+    }
+    const response = await fetchStrapi(url, {
       next: { revalidate },
     });
     return (response.data || []) as Post[];
@@ -77,7 +112,7 @@ export const getLatestPosts = async ({
   revalidate?: number 
 } = {}) => {
   try {
-    const url = limit ? `/blog-lastest?limit=${limit}` : '/blog-lastest';
+    const url = limit ? `/blog-lastest?limit=${limit}&populate=*` : '/blog-lastest?populate=*';
     const response = await fetchStrapi(url, {
       next: { revalidate },
     });
@@ -90,7 +125,8 @@ export const getLatestPosts = async ({
 
 export const getPostBySlug = async (slug: string, revalidate: number = 3600) => {
   try {
-    const response = await fetchStrapi(`/posts?filters[slug][$eq]=${slug}&populate=*`, {
+    // Deep populate series.posts for navigation
+    const response = await fetchStrapi(`/posts?filters[slug][$eq]=${slug}&populate[categories][populate]=*&populate[tags][populate]=*&populate[series][populate][posts][fields][0]=title&populate[series][populate][posts][fields][1]=slug&populate[cover][populate]=*&populate[author][populate]=*`, {
       next: { revalidate },
     });
     return (response.data?.[0] || null) as Post | null;
@@ -269,7 +305,12 @@ export const getTextContent = (content: any): string => {
 
 export const renderBlocks = (content: any) => {
   if (!content) return null;
-  if (typeof content === 'string') return <p>{content}</p>;
+  
+  // Handle raw HTML string from custom editor
+  if (typeof content === 'string') {
+    return <div dangerouslySetInnerHTML={{ __html: content }} />;
+  }
+  
   if (!Array.isArray(content)) return null;
 
   return content.map((block: any, i: number) => {
@@ -283,4 +324,54 @@ export const renderBlocks = (content: any) => {
         return null;
     }
   });
+};
+
+/**
+ * Fetch a user profile by username
+ */
+export const getUserByUsername = async (username: string) => {
+  try {
+    const response = await fetch(`${STRAPI_URL}/api/users?filters[username][$eq]=${username}&populate=*`);
+    const data = await response.json();
+    return (data?.[0] || null);
+  } catch (error) {
+    console.error(`Error fetching user ${username}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Toggle following a user
+ */
+export const toggleFollow = async (jwt: string, currentUserId: number, targetUserId: number, isCurrentlyFollowing: boolean) => {
+  try {
+    const currentUser = await fetch(`${STRAPI_URL}/api/users/me?populate=following`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    }).then(res => res.json());
+
+    const currentFollowingIds = currentUser.following?.map((u: any) => u.id) || [];
+    
+    let newFollowingIds;
+    if (isCurrentlyFollowing) {
+      newFollowingIds = currentFollowingIds.filter((id: number) => id !== targetUserId);
+    } else {
+      newFollowingIds = [...currentFollowingIds, targetUserId];
+    }
+
+    const response = await fetch(`${STRAPI_URL}/api/users/${currentUserId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({
+        following: newFollowingIds
+      }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Error toggling follow:', error);
+    return false;
+  }
 };

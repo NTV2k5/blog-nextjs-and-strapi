@@ -3,8 +3,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, User, LogOut, Key, ChevronDown, LogIn, UserPlus, X, Bookmark } from 'lucide-react';
+import {
+  Search, User, LogOut, Key, ChevronDown, LogIn, UserPlus, X,
+  Bookmark, BarChart3, LayoutDashboard, ShieldCheck,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useHasRole } from '@/hooks/useRole';
 import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
@@ -13,6 +17,9 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const canAccessDashboard = useHasRole(['admin', 'manager']);
+  const canAccessReport   = useHasRole(['admin', 'manager', 'director']);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,12 +30,15 @@ export default function Navbar() {
     }
   };
 
+  const close = () => setIsProfileOpen(false);
+
   return (
     <nav className="glass-navbar mt-6 flex items-center justify-between px-6 py-4">
       <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
         GlassBlog
       </Link>
-      
+
+      {/* Desktop nav links */}
       <div className="hidden md:flex items-center space-x-8 font-medium">
         <Link href="/" className="hover:text-primary transition-colors">Home</Link>
         <Link href="/about" className="hover:text-primary transition-colors">About</Link>
@@ -36,10 +46,11 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center space-x-4">
+        {/* Search */}
         <div className="relative flex items-center">
           <AnimatePresence>
             {isSearchOpen && (
-              <motion.form 
+              <motion.form
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: '200px', opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
@@ -58,8 +69,8 @@ export default function Navbar() {
               </motion.form>
             )}
           </AnimatePresence>
-          
-          <button 
+
+          <button
             onClick={() => {
               if (isSearchOpen && searchQuery) {
                 handleSearch({ preventDefault: () => {} } as any);
@@ -77,9 +88,10 @@ export default function Navbar() {
           </button>
         </div>
 
+        {/* Auth section */}
         {user ? (
           <div className="relative">
-            <button 
+            <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all group"
             >
@@ -87,6 +99,12 @@ export default function Navbar() {
                 {user.username[0].toUpperCase()}
               </div>
               <span className="text-sm font-medium text-gray-200 hidden sm:inline">{user.username}</span>
+              {/* Role badge */}
+              {user.role && (
+                <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                  {user.role.name}
+                </span>
+              )}
               <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -96,37 +114,67 @@ export default function Navbar() {
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 mt-3 w-56 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 p-1.5"
+                  className="absolute right-0 mt-3 w-60 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 p-1.5"
                 >
+                  {/* User info header */}
                   <div className="px-4 py-3 border-b border-white/5 mb-1">
                     <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Signed in as</p>
                     <p className="text-sm font-medium text-gray-200 truncate">{user.email}</p>
+                    {user.role && (
+                      <p className="text-xs text-blue-400 font-semibold mt-0.5 flex items-center gap-1">
+                        <ShieldCheck size={11} /> {user.role.name}
+                      </p>
+                    )}
                   </div>
-                  
-                  <Link 
-                    href="/saved" 
-                    onClick={() => setIsProfileOpen(false)}
+
+                  {/* Dashboard — only admin & manager */}
+                  {canAccessDashboard && (
+                    <Link
+                      href="/dashboard"
+                      onClick={close}
+                      className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-gray-400 group-hover:text-blue-400" />
+                      Dashboard
+                    </Link>
+                  )}
+
+                  {/* Report — admin, manager & director */}
+                  {canAccessReport && (
+                    <Link
+                      href="/report"
+                      onClick={close}
+                      className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
+                    >
+                      <BarChart3 className="w-4 h-4 text-gray-400 group-hover:text-purple-400" />
+                      Reports
+                    </Link>
+                  )}
+
+                  {/* Saved — all logged-in users */}
+                  <Link
+                    href="/saved"
+                    onClick={close}
                     className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
                   >
                     <Bookmark className="w-4 h-4 text-gray-400 group-hover:text-blue-400" />
                     Saved Articles
                   </Link>
 
-                  <Link 
-                    href="/change-password" 
-                    onClick={() => setIsProfileOpen(false)}
+                  {/* Change Password — all logged-in users */}
+                  <Link
+                    href="/change-password"
+                    onClick={close}
                     className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
                   >
                     <Key className="w-4 h-4 text-gray-400 group-hover:text-blue-400" />
                     Change Password
                   </Link>
-                  
-                  <button 
-                    onClick={() => {
-                      logout();
-                      setIsProfileOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-xl transition-all group mt-1"
+
+                  {/* Sign out */}
+                  <button
+                    onClick={() => { logout(); close(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-xl transition-all group mt-1 border-t border-white/5 pt-2"
                   >
                     <LogOut className="w-4 h-4" />
                     Sign Out
@@ -137,15 +185,15 @@ export default function Navbar() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Link 
-              href="/login" 
+            <Link
+              href="/login"
               className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
             >
               <LogIn className="w-4 h-4" />
               Sign In
             </Link>
-            <Link 
-              href="/signup" 
+            <Link
+              href="/signup"
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-500/20 transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4" />

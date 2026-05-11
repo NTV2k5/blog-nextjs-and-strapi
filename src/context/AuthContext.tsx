@@ -3,12 +3,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 
-interface User {
+export type UserRole = 'authenticated' | 'admin' | 'manager' | 'director' | string;
+
+export interface User {
   id: number;
   username: string;
   email: string;
   confirmed: boolean;
   blocked: boolean;
+  role?: {
+    id: number;
+    name: string;
+    type: UserRole;
+  };
 }
 
 interface AuthContextType {
@@ -17,6 +24,8 @@ interface AuthContextType {
   loading: boolean;
   login: (jwt: string, user: User) => void;
   logout: () => void;
+  /** Fetch fresh user data including role from Strapi */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,23 +35,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [jwt, setJwt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserWithRole = async (token: string): Promise<User | null> => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_STRAPI_URL}/api/users/me?populate=role`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const savedJwt = Cookies.get('jwt');
     const savedUser = Cookies.get('user');
 
     if (savedJwt && savedUser) {
       setJwt(savedJwt);
-      setUser(JSON.parse(savedUser));
+      // Load cached user first for immediate UI
+      const cached = JSON.parse(savedUser) as User;
+      setUser(cached);
+
+      // Then fetch fresh data with role in background
+      fetchUserWithRole(savedJwt).then((fresh) => {
+        if (fresh) {
+          setUser(fresh);
+          Cookies.set('user', JSON.stringify(fresh), { expires: 7 });
+        }
+      });
     }
     setLoading(false);
   }, []);
 
-  const login = (newJwt: string, newUser: User) => {
+  const login = async (newJwt: string, newUser: User) => {
+    // Fetch user with role after login
+    const userWithRole = await fetchUserWithRole(newJwt);
+    const finalUser = userWithRole || newUser;
+
     setJwt(newJwt);
-    setUser(newUser);
-    
-    Cookies.set('jwt', newJwt, { expires: 7 }); // Expires in 7 days
-    Cookies.set('user', JSON.stringify(newUser), { expires: 7 });
+    setUser(finalUser);
+    Cookies.set('jwt', newJwt, { expires: 7 });
+    Cookies.set('user', JSON.stringify(finalUser), { expires: 7 });
   };
 
   const logout = () => {
@@ -52,8 +87,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     Cookies.remove('user');
   };
 
+  const refreshUser = async () => {
+    if (!jwt) return;
+    const fresh = await fetchUserWithRole(jwt);
+    if (fresh) {
+      setUser(fresh);
+      Cookies.set('user', JSON.stringify(fresh), { expires: 7 });
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, jwt, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, jwt, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

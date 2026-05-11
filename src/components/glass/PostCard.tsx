@@ -55,7 +55,12 @@ export default function PostCard({ post, index }: PostCardProps) {
                 alt={cover?.alternativeText || title}
                 className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
               />
-              <div className="absolute top-4 left-4">
+              <div className="absolute top-4 left-4 flex gap-2">
+                {post.categories && post.categories.length > 0 && (
+                  <Badge className="bg-blue-600/40 backdrop-blur-md border-blue-400/30 text-white hover:bg-blue-600/60">
+                    {post.categories[0].name}
+                  </Badge>
+                )}
                 <Badge className="bg-white/20 backdrop-blur-md border-white/30 text-white hover:bg-white/30">
                   Article
                 </Badge>

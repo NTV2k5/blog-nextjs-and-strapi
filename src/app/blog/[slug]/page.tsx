@@ -13,7 +13,7 @@ import SeriesNavigation from '@/components/blog/SeriesNavigation';
 import { Hash } from 'lucide-react';
 
 // ISR Configuration: Revalidate every 2 hours
-export const revalidate = 7200;
+export const revalidate = 60;
 
 // Pre-render blog posts during build
 export async function generateStaticParams() {

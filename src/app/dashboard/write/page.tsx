@@ -4,9 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import BlogEditor from '@/components/editor/BlogEditor';
-import { Save, Send, Calendar, History, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Send, Calendar, Trash2, CheckCircle2, AlertCircle, Tag, Layers } from 'lucide-react';
 import debounce from 'lodash.debounce';
 import { uploadImage } from '@/lib/editor-utils';
+import { getAllCategories, getAllTags } from '@/lib/strapi';
 
 export default function WritePage() {
   const { user, jwt } = useAuth();
@@ -18,8 +19,16 @@ export default function WritePage() {
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [publishDate, setPublishDate] = useState<string>('');
   const [isScheduled, setIsScheduled] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [versions, setVersions] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
+  const [availableTags, setAvailableTags] = useState<any[]>([]);
+
+  // Load categories & tags
+  useEffect(() => {
+    getAllCategories().then(setAvailableCategories);
+    getAllTags().then(setAvailableTags);
+  }, []);
 
   // Load from LocalStorage on mount
   useEffect(() => {
@@ -67,9 +76,12 @@ export default function WritePage() {
           data: {
             title,
             description,
-            slug: title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, ''),
+            slug: title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Math.random().toString(36).substring(2, 8),
+            content,
             scheduledPublishAt: isScheduled ? publishDate : null,
             author_user: user?.id,
+            categories: selectedCategories,
+            tags: selectedTags,
           }
         }),
       });
@@ -78,33 +90,31 @@ export default function WritePage() {
         const result = await response.json();
         // If not scheduled, publish it immediately
         if (!isScheduled) {
-          await fetch(`${process.env.NEXT_PUBLIC_STRAPI_URL}/api/posts/${result.data.documentId}/publish`, {
+          await fetch(`${process.env.NEXT_PUBLIC_STRAPI_URL}/api/posts/${result.data.documentId}/actions/publish`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${jwt}` },
           });
         }
         localStorage.removeItem('blog_draft');
-        router.push('/blog');
+        if (result?.data?.slug) {
+          router.push(`/blog/${result.data.slug}`);
+        } else {
+          router.push('/');
+        }
       } else {
+        const errorData = await response.json();
+        console.error('Strapi validation error:', errorData);
+        alert(`Failed to save post: ${errorData?.error?.message || 'Unknown error'}`);
         setStatus('error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Publish error:', error);
+      alert(`An error occurred: ${error.message}`);
       setStatus('error');
     }
   };
 
-  const fetchVersions = async (postId: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_STRAPI_URL}/api/post-versions?filters[post][id]=${postId}&sort=createdAt:desc`, {
-        headers: { Authorization: `Bearer ${jwt}` },
-      });
-      const data = await response.json();
-      setVersions(data.data);
-    } catch (error) {
-      console.error('Error fetching versions:', error);
-    }
-  };
+
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
@@ -120,14 +130,6 @@ export default function WritePage() {
             {status === 'idle' && <><Save className="mr-2" size={14} /> Draft ready</>}
             {status === 'error' && <><AlertCircle className="text-red-400 mr-2" size={14} /> Save failed</>}
           </div>
-          
-          <button 
-            onClick={() => setShowHistory(!showHistory)}
-            className="p-2.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-            title="Version History"
-          >
-            <History size={20} />
-          </button>
           
           <button 
             onClick={handlePublish}
@@ -202,24 +204,62 @@ export default function WritePage() {
             </div>
           </div>
 
-          {showHistory && (
-            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md animate-in slide-in-from-right-4 duration-300">
+          {/* Category Selector */}
+          {availableCategories.length > 0 && (
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <History size={18} className="text-purple-400" />
-                History
+                <Layers size={18} className="text-purple-400" />
+                Categories
               </h3>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {versions.length > 0 ? versions.map((v, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-medium text-white/40">Version {versions.length - i}</span>
-                      <span className="text-[10px] text-white/30">{new Date(v.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="text-sm text-white/70 line-clamp-1 group-hover:text-white transition-colors">{v.title}</p>
-                  </div>
-                )) : (
-                  <p className="text-sm text-white/30 text-center py-4 italic">No history yet. Save to create a version.</p>
-                )}
+              <div className="flex flex-wrap gap-2">
+                {availableCategories.map((cat: any) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategories(prev =>
+                        prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                      );
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                      selectedCategories.includes(cat.id)
+                        ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
+                        : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tag Selector */}
+          {availableTags.length > 0 && (
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Tag size={18} className="text-blue-400" />
+                Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag: any) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTags(prev =>
+                        prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
+                      );
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                      selectedTags.includes(tag.id)
+                        ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                        : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+                    }`}
+                  >
+                    #{tag.name}
+                  </button>
+                ))}
               </div>
             </div>
           )}

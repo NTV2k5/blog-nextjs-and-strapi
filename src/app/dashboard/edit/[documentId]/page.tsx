@@ -82,10 +82,11 @@ export default function EditPage({ params }: { params: Promise<{ documentId: str
 
       if (response.ok) {
         if (publish && !isPublished) {
-          await fetch(`${process.env.NEXT_PUBLIC_STRAPI_URL}/api/posts/${documentId}/publish`, {
+          await fetch(`${process.env.NEXT_PUBLIC_STRAPI_URL}/api/posts/${documentId}/actions/publish`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${jwt}` },
           });
+          setIsPublished(true);
         }
         setStatus('saved');
         setTimeout(() => setStatus('idle'), 2000);

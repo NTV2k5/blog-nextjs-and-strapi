@@ -37,7 +37,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const cover = Array.isArray(post.cover) ? post.cover[0] : post.cover;
   const coverUrl = cover ? getStrapiURL(cover.url) : null;
-  const authorAvatar = post.author?.avatar ? getStrapiURL(post.author.avatar.url) : null;
+  // Prefer author_user (Users & Permissions) over legacy author relation
+  const authorAvatar = post.author_user?.avatar ? getStrapiURL(post.author_user.avatar.url)
+    : post.author?.avatar ? getStrapiURL((post.author.avatar as any).url)
+    : null;
 
   const title = getTextContent(post.title);
   const description = getTextContent(post.description);
@@ -75,19 +78,31 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </h1>
             
             <div className="flex flex-wrap items-center gap-6 py-6 border-y border-white/10">
-              <Link href={`/author/${post.author?.username}`} className="flex items-center space-x-3 group/author">
-                <Avatar className="w-12 h-12 border-2 border-white/10 group-hover/author:border-blue-500/50 transition-colors">
-                  {authorAvatar ? (
-                    <AvatarImage src={authorAvatar} />
-                  ) : (
-                    <AvatarFallback className="bg-white/5 text-white/50">{post.author?.name?.charAt(0) || 'A'}</AvatarFallback>
-                  )}
-                </Avatar>
-                <div>
-                  <p className="text-sm font-bold text-white group-hover/author:text-blue-400 transition-colors">{post.author?.name || 'Anonymous'}</p>
-                  <p className="text-xs text-white/40">Story Architect</p>
-                </div>
-              </Link>
+              {/* Author */}
+              {(post.author_user?.username || post.author?.name) ? (
+                <Link
+                  href={post.author_user?.username ? `/author/${post.author_user.username}` : '#'}
+                  className="flex items-center space-x-3 group/author"
+                >
+                  <Avatar className="w-12 h-12 border-2 border-white/10 group-hover/author:border-blue-500/50 transition-colors">
+                    {authorAvatar ? (
+                      <AvatarImage src={authorAvatar} />
+                    ) : (
+                      <AvatarFallback className="bg-white/5 text-white/50">
+                        {(post.author_user?.username || post.author?.name || 'A').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-bold text-white group-hover/author:text-blue-400 transition-colors">
+                      {post.author_user?.username || post.author?.name || 'Anonymous'}
+                    </p>
+                    <p className="text-xs text-white/40">
+                      {post.author_user?.jobTitle || 'Story Architect'}
+                    </p>
+                  </div>
+                </Link>
+              ) : null}
               
               <div className="h-8 w-px bg-white/10" />
               

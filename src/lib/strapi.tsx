@@ -77,10 +77,23 @@ export interface Post {
   slug: string | any;
   createdAt: string;
   publishedAt: string;
+  readTime?: number;
+  viewCount?: number;
   cover?: StrapiImage | StrapiImage[];
+  /** author = api::author.author (legacy) */
   author?: {
+    id: number;
     name: string;
+    avatar?: StrapiImage;
+  };
+  /** author_user = plugin::users-permissions.user (primary) */
+  author_user?: {
+    id: number;
     username: string;
+    email?: string;
+    bio?: string;
+    jobTitle?: string;
+    location?: string;
     avatar?: StrapiImage;
   };
   categories?: Category[];
@@ -90,7 +103,7 @@ export interface Post {
 
 export const getPosts = async (revalidate: number = 90, authorUsername?: string) => {
   try {
-    let url = '/posts?populate=*';
+    let url = '/posts?populate[0]=cover&populate[1]=author.avatar&populate[2]=author_user.avatar&populate[3]=categories&populate[4]=tags';
     if (authorUsername) {
       url += `&filters[author_user][username][$eq]=${authorUsername}`;
     }
@@ -100,6 +113,52 @@ export const getPosts = async (revalidate: number = 90, authorUsername?: string)
     return (response.data || []) as Post[];
   } catch (error) {
     console.error('Error fetching posts:', error);
+    return [];
+  }
+};
+
+export const getPostsByCategory = async (categorySlug: string, revalidate = 90) => {
+  try {
+    const url = `/posts?filters[categories][slug][$eq]=${categorySlug}&populate[0]=cover&populate[1]=author.avatar&populate[2]=author_user.avatar&populate[3]=categories&populate[4]=tags`;
+    const response = await fetchStrapi(url, { next: { revalidate } });
+    return (response.data || []) as Post[];
+  } catch (error) {
+    console.error('Error fetching posts by category:', error);
+    return [];
+  }
+};
+
+export const getPostsByTag = async (tagSlug: string, revalidate = 90) => {
+  try {
+    const url = `/posts?filters[tags][slug][$eq]=${tagSlug}&populate[0]=cover&populate[1]=author.avatar&populate[2]=author_user.avatar&populate[3]=categories&populate[4]=tags`;
+    const response = await fetchStrapi(url, { next: { revalidate } });
+    return (response.data || []) as Post[];
+  } catch (error) {
+    console.error('Error fetching posts by tag:', error);
+    return [];
+  }
+};
+
+export const getAllCategories = async (revalidate = 3600) => {
+  try {
+    const response = await fetchStrapi('/categories?populate=*&sort=name:asc', {
+      next: { revalidate },
+    });
+    return (response.data || []) as Category[];
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
+};
+
+export const getAllTags = async (revalidate = 3600) => {
+  try {
+    const response = await fetchStrapi('/tags?sort=name:asc', {
+      next: { revalidate },
+    });
+    return (response.data || []) as Tag[];
+  } catch (error) {
+    console.error('Error fetching tags:', error);
     return [];
   }
 };
@@ -125,10 +184,16 @@ export const getLatestPosts = async ({
 
 export const getPostBySlug = async (slug: string, revalidate: number = 3600) => {
   try {
-    // Deep populate series.posts for navigation
-    const response = await fetchStrapi(`/posts?filters[slug][$eq]=${slug}&populate[categories][populate]=*&populate[tags][populate]=*&populate[series][populate][posts][fields][0]=title&populate[series][populate][posts][fields][1]=slug&populate[cover][populate]=*&populate[author][populate]=*`, {
-      next: { revalidate },
-    });
+    const response = await fetchStrapi(
+      `/posts?filters[slug][$eq]=${slug}` +
+      `&populate[0]=cover` +
+      `&populate[1]=author.avatar` +
+      `&populate[2]=author_user.avatar` +
+      `&populate[3]=categories` +
+      `&populate[4]=tags` +
+      `&populate[5]=series.posts`,
+      { next: { revalidate } }
+    );
     return (response.data?.[0] || null) as Post | null;
   } catch (error) {
     console.error(`Error fetching post with slug ${slug}:`, error);

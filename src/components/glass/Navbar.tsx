@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, User, LogOut, Key, ChevronDown, LogIn, UserPlus, X,
-  Bookmark, BarChart3, LayoutDashboard, ShieldCheck,
+  Bookmark, BarChart3, LayoutDashboard, ShieldCheck, UserCircle, PenLine,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useHasRole } from '@/hooks/useRole';
@@ -18,7 +18,7 @@ export default function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const canAccessDashboard = useHasRole(['admin', 'manager']);
+  const canAccessDashboard = useHasRole(['admin', 'manager', 'author', 'authenticated']);
   const canAccessReport   = useHasRole(['admin', 'manager', 'director']);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -127,15 +127,35 @@ export default function Navbar() {
                     )}
                   </div>
 
-                  {/* Dashboard — only admin & manager */}
+                  {/* My Profile (public view) */}
+                  <Link
+                    href={`/author/${user.username}`}
+                    onClick={close}
+                    className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
+                  >
+                    <UserCircle className="w-4 h-4 text-gray-400 group-hover:text-blue-400" />
+                    My Profile
+                  </Link>
+
+                  {/* Edit Profile */}
+                  <Link
+                    href="/profile"
+                    onClick={close}
+                    className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
+                  >
+                    <User className="w-4 h-4 text-gray-400 group-hover:text-purple-400" />
+                    Edit Profile
+                  </Link>
+
+                  {/* Dashboard — author, admin & manager */}
                   {canAccessDashboard && (
                     <Link
                       href="/dashboard"
                       onClick={close}
                       className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white rounded-xl transition-all group"
                     >
-                      <LayoutDashboard className="w-4 h-4 text-gray-400 group-hover:text-blue-400" />
-                      Dashboard
+                      <PenLine className="w-4 h-4 text-gray-400 group-hover:text-green-400" />
+                      Write / Dashboard
                     </Link>
                   )}
 
